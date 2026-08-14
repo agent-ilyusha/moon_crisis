@@ -1,10 +1,8 @@
-from pydantic import ValidationError
 from sqlalchemy import Column, Integer, Float, ForeignKey, String, UUID
 from sqlalchemy.orm import Mapped, validates, relationship
 
 from app.models.general import UUID_Mixin
 from app.models.Station import Station
-from app.models.Storage import Storage
 
 
 class Rover(UUID_Mixin):
@@ -31,41 +29,18 @@ class Rover(UUID_Mixin):
     # Relationship
     station_id: Mapped[UUID] = Column(ForeignKey(Station.id), nullable=True)
     station_owner: Mapped[Station] = relationship(Station, back_populates='rovers')
-    storage_id: Mapped[UUID] = Column(ForeignKey(Storage.id), nullable=True)
-    storage_owner: Mapped[UUID] = relationship(Storage, back_populates='rovers')
 
     @validates('max_payload', 'base_drain_rate', 'armor')
     def validate_max_payload(self, key, value):
         if value < 0:
-            raise ValidationError()
+            raise ValueError(f'{key} must be greater than or equal to zero.')
         return value
 
     @validates('battery_capacity', 'wear')
     def validate_battery_capacity(self, key, value):
         if 0 <= value <= 100:
             return value
-        raise ValidationError()
-
-    def __repr__(self):
-        return {
-            'name': self.name,
-            'madel': self.madel,
-            'max_payload': self.max_payload,
-            'battery_capacity': self.battery_capacity,
-            'base_drain_rate': self.base_drain_rate,
-            'armor': self.armor,
-            'now_battery_capacity': self.now_battery_capacity,
-            'position_x': self.position_x,
-            'position_y': self.position_y,
-            'status': self.status,
-            'wear': self.wear,
-            'station_id': self.station_id,
-            'station_owner': self.station_owner,
-        }
+        raise ValueError(f'{key} capacity must be between 0 and 100.')
 
     def __str__(self):
-        return ', '.join([f'{key}: {val}' for key, val in self.__repr__().items()])
-
-    class Meta:
-        verbose_name = 'Rover'
-        verbose_name_plural = 'Rovers'
+        return ', '.join([f'{key}: {val}' for key, val in self.__dict__.items()])

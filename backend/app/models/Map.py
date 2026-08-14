@@ -1,10 +1,7 @@
 import enum
 
-from typing import List
-
-from pydantic import ValidationError
 from sqlalchemy import Boolean, Column, Enum, Float, ForeignKey, String, UUID
-from sqlalchemy.orm import validates, Mapped, relationship
+from sqlalchemy.orm import Mapped
 
 from app.models.general import UUID_Mixin
 from app.models.Factions import Faction
@@ -30,20 +27,5 @@ class Map(UUID_Mixin):
     controlling_faction_id:  Mapped[UUID] = Column(ForeignKey(Faction.id), nullable=False)
     has_charging: Mapped[Boolean] = Column(Boolean, nullable=False)
 
-    def __repr__(self):
-        return {
-            "id": self.id,
-            "name": self.name,
-            "coord_x": self.coord_x,
-            "coord_y": self.coord_y,
-            "location_type": self.location_type,
-            "controlling_faction_id": self.controlling_faction_id,
-            "has_charging": self.has_charging,
-        }
-
     def __str__(self):
-        return ', '.join([f'{key}: {val}' for key, val in self.__repr__().items()])
-
-    class Meta:
-        verbose_name = "Map"
-        verbose_name_plural = "Maps"
+        return ', '.join([f'{key}: {val}' for key, val in self.__dict__.items()])

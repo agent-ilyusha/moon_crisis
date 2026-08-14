@@ -1,6 +1,5 @@
-from pydantic import ValidationError
 from sqlalchemy import Column, Integer, Float, ForeignKey, String, UUID
-from sqlalchemy.orm import Mapped, validates, relationship
+from sqlalchemy.orm import Mapped
 
 from app.models.general import UUID_Mixin
 from app.models.Station import Station
@@ -16,19 +15,8 @@ class Faction(UUID_Mixin):
     tag: Mapped[UUID] = Column(String(10), nullable=False)
     description: Mapped[String] = Column(String(500), nullable=False)
 
-    def __repr__(self):
-        return {
-            'name': self.name,
-            'tag': self.tag,
-            'description': self.description,
-        }
-
     def __str__(self):
-        return ', '.join([f'{key}: {val}' for key, val in self.__repr__().items()])
-
-    class Meta:
-        verbose_name = 'Faction'
-        verbose_name_plural = 'Factions'
+        return ', '.join([f'{key}: {val}' for key, val in self.__dict__.items()])
 
 
 class Factions_relationship(UUID_Mixin):
@@ -41,15 +29,8 @@ class Factions_relationship(UUID_Mixin):
     first_faction_id: Mapped[UUID] = Column(ForeignKey('factions.id'), nullable=False)
     second_faction_id: Mapped[UUID] = Column(ForeignKey('factions.id'), nullable=False)
 
-    def __repr__(self):
-        return {
-            'reputation_impact': self.reputation_impact,
-            'first_faction_id': self.first_faction_id,
-            'second_faction_id': self.second_faction_id,
-        }
-
     def __str__(self):
-        return ', '.join([f'{key}: {val}' for key, val in self.__repr__().items()])
+        return ', '.join([f'{key}: {val}' for key, val in self.__dict__.items()])
 
 
 class Station_faction_reputation(UUID_Mixin):
@@ -62,16 +43,5 @@ class Station_faction_reputation(UUID_Mixin):
     faction_id: Mapped[UUID] = Column(ForeignKey(Faction.id), nullable=False)
     reputation: Mapped[Integer] = Column(Integer, nullable=False)
 
-    def __repr__(self):
-        return {
-            'station_id': self.station_id,
-            'faction_id': self.faction_id,
-            'reputation': self.reputation,
-        }
-
     def __str__(self):
-        return ', '.join([f'{key}: {val}' for key, val in self.__repr__().items()])
-
-    class Meta:
-        verbose_name = 'Station Faction'
-        verbose_name_plural = 'Station Factions'
+        return ', '.join([f'{key}: {val}' for key, val in self.__dict__.items()])

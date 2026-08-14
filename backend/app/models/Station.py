@@ -1,6 +1,5 @@
 from typing import List
 
-from pydantic import ValidationError
 from sqlalchemy import Column, ForeignKey, Integer, String, UUID
 from sqlalchemy.orm import validates, Mapped, relationship
 
@@ -29,21 +28,9 @@ class Station(UUID_Mixin):
     @validates('balance', 'reputation', 'fleet_capacity')
     def validate_balance(self, key: str, value: int):
         if value < 0:
-            raise ValidationError()
+            raise ValueError('Balance must be greater than or equal to zero')
         return value
 
     def __str__(self):
         return (f'Название: {self.name}, баланс: {self.balance},'
                 f'репутация: {self.reputation}, количество роверов: {self.fleet_capacity}.')
-
-    def __repr__(self):
-        return {
-            'name': self.name,
-            'balance': self.balance,
-            'reputation': self.reputation,
-            'fleet_capacity': self.fleet_capacity
-        }
-
-    class Meta:
-        verbose_name = 'Station'
-        verbose_name_plural = 'Stations'
