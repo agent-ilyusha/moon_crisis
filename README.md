@@ -12,9 +12,12 @@ Moon Rover Control Center — это интерактивная экономич
 * Установленный **Docker** и **Docker Compose**.
 
 ### 2. Запуск
-В корневом каталоге проекта выполните команду:
+В корневом каталоге проекта выполните команды:
 ```bash
 docker-compose up --build
+```
+```bash
+docker compose exec backend python -m app.db.seed
 ```
 Это запустит три контейнера:
 1. `db`: База данных PostgreSQL 16 (порт `5432`).
