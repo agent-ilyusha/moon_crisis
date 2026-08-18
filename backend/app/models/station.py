@@ -1,6 +1,8 @@
-from typing import List
-from sqlalchemy import Column, ForeignKey, Integer, String, UUID
-from sqlalchemy.orm import validates, Mapped, relationship
+
+from sqlalchemy import UUID, Column, ForeignKey, Integer, String
+from sqlalchemy.orm import Mapped, relationship, validates
+
+from app.models import Rover, User
 from app.models.general import UUIDMixin
 
 
@@ -18,7 +20,7 @@ class Station(UUIDMixin):
     faction_id: Mapped[UUID] = Column(ForeignKey('factions.id', ondelete='CASCADE'), nullable=False)
 
     owner: Mapped["User"] = relationship("User", back_populates='stations')
-    rovers: Mapped[List["Rover"]] = relationship("Rover", back_populates='station_owner')
+    rovers: Mapped[list["Rover"]] = relationship("Rover", back_populates='station_owner')
 
     @validates('balance', 'reputation', 'fleet_capacity')
     def validate_non_negative(self, key: str, value: int):

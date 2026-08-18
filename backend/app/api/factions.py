@@ -1,11 +1,16 @@
-from typing import List
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_db
-from app.models.Factions import Faction, Factions_relationship
+from app.models.factions import (
+    Faction,
+    Factions_relationship,
+    Station_faction_reputation,
+)
+from app.models.station import Station
 from app.schemas import (
     FactionRelationshipCreate,
     FactionRelationshipResponse,
@@ -14,9 +19,23 @@ from app.schemas import (
 )
 
 router = APIRouter(tags=["Factions"])
+Session = Annotated[Session, Depends(get_db)]
 
 
 def _get_faction_or_404(db: Session, faction_id: UUID) -> Faction:
+    """
+    Get faction.
+
+    Args:
+        db: Session database.
+        faction_id: UUID field.
+
+    Return:
+        Faction.
+
+    Raises:
+        HTTPException: If not faction.
+    """
     faction = db.query(Faction).filter(Faction.id == faction_id).first()
     if not faction:
         raise HTTPException(status_code=404, detail="Фракция не найдена")
@@ -26,6 +45,17 @@ def _get_faction_or_404(db: Session, faction_id: UUID) -> Faction:
 def _find_relationship(
     db: Session, faction_a: UUID, faction_b: UUID
 ) -> Factions_relationship | None:
+    """
+    Find relationship on database.
+
+    Args:
+        db: Session database.
+        faction_a: UUID first field.
+        faction_b: UUID second field.
+
+    Return:
+        Faction.
+    """
     return (
         db.query(Factions_relationship)
         .filter(
@@ -42,11 +72,18 @@ def _find_relationship(
     )
 
 
-@router.get("/factions", response_model=List[FactionResponse])
-def get_all_factions(db: Session = Depends(get_db)):
+@router.get("/factions", response_model=list[FactionResponse])
+def get_all_factions(db: Session):
+    """
+    Get all factions.
+
+    Args:
+        db: Session database.
+
+    Return:
+        list of factions.
+    """
     factions = db.query(Faction).all()
-    from app.models.Station import Station
-    from app.models.Factions import Station_faction_reputation
 
     station = db.query(Station).first()
     rep_map = {}
@@ -73,16 +110,38 @@ def get_all_factions(db: Session = Depends(get_db)):
     return result
 
 
-@router.get("/factions/relationships", response_model=List[FactionRelationshipResponse])
-def get_all_faction_relationships(db: Session = Depends(get_db)):
+@router.get("/factions/relationships", response_model=list[FactionRelationshipResponse])
+def get_all_faction_relationships(db: Session):
+    """
+    Get all faction relationships.
+
+    Args:
+        db: Session database.
+
+    Return:
+        All factions.
+    """
     return db.query(Factions_relationship).all()
 
 
 @router.post("/factions/relationships", response_model=FactionRelationshipResponse)
 def create_or_update_faction_relationship(
     payload: FactionRelationshipCreate,
-    db: Session = Depends(get_db),
+    db: Session,
 ):
+    """
+    Create or update faction relationship.
+
+    Args:
+        payload: Payload of faction.
+        db: Session database.
+
+    Return:
+        Relationship of faction.
+
+    Raises:
+        HTTPException: If payload.first_faction_id == payload.second_faction_id.
+    """
     if payload.first_faction_id == payload.second_faction_id:
         raise HTTPException(
             status_code=400,
@@ -119,8 +178,22 @@ def create_or_update_faction_relationship(
 def update_faction_relationship(
     relationship_id: UUID,
     payload: FactionRelationshipUpdate,
-    db: Session = Depends(get_db),
+    db: Session,
 ):
+    """
+    Update faction relationship.
+
+    Args:
+        relationship_id: UUID of relationship.
+        payload: Payload of query.
+        db: Session database.
+
+    Return:
+        Relationship of query.
+
+    Raises:
+        HTTPException: If not relationship.
+    """
     relationship = (
         db.query(Factions_relationship)
         .filter(Factions_relationship.id == relationship_id)
@@ -137,9 +210,19 @@ def update_faction_relationship(
 
 @router.get(
     "/factions/{faction_id}/relationships",
-    response_model=List[FactionRelationshipResponse],
+    response_model=list[FactionRelationshipResponse],
 )
-def get_faction_relationships(faction_id: UUID, db: Session = Depends(get_db)):
+def get_faction_relationships(faction_id: UUID, db: Session):
+    """
+    Get faction relationships.
+
+    Args:
+        faction_id: Faction id.
+        db: Session database.
+
+    Return:
+        All factions.
+    """
     _get_faction_or_404(db, faction_id)
     return (
         db.query(Factions_relationship)
@@ -152,5 +235,15 @@ def get_faction_relationships(faction_id: UUID, db: Session = Depends(get_db)):
 
 
 @router.get("/factions/{faction_id}", response_model=FactionResponse)
-def get_faction_by_id(faction_id: UUID, db: Session = Depends(get_db)):
+def get_faction_by_id(faction_id: UUID, db: Session):
+    """
+    Get faction by id.
+
+    Args:
+        faction_id: Faction id.
+        db: Session database.
+
+    Return:
+        Query on faction.
+    """
     return _get_faction_or_404(db, faction_id)

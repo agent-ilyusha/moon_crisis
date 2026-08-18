@@ -1,27 +1,25 @@
 import sys
 from pathlib import Path
 
-# Добавляем корень проекта в sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import uuid
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-# Импортируем Base из общего модуля декларативных моделей
-from app.models.general import Base
-
-# Обязательно импортируем все модели, чтобы SQLAlchemy зарегистрировала их таблицы в Base.metadata
-from app.models import Faction, Map, RouteSegment, Rover, Station, User
-from app.models.Map import LocationType
-from app.models.Factions import Factions_relationship, Station_faction_reputation
-
-from app.main import app
 from app.api.dependencies import get_db as deps_get_db
 from app.database import get_db as db_get_db
+from app.main import app
+
+from app.models import Faction, Map, RouteSegment, Rover
+from app.models.factions import Factions_relationship
+
+from app.models.general import Base
+from app.models.map import LocationType
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 

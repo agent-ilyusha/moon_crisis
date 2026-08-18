@@ -1,6 +1,4 @@
-import pytest
 from uuid import uuid4
-from app.models.Map import Map, LocationType
 
 
 def test_get_nodes(client, db_session, seed_data):

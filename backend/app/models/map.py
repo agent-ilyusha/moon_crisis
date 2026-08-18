@@ -1,10 +1,9 @@
 import enum
 
-from sqlalchemy import Boolean, Column, Enum, Float, ForeignKey, String, UUID
+from sqlalchemy import UUID, Boolean, Column, Enum, Float, ForeignKey, String
 from sqlalchemy.orm import Mapped
 
 from app.models.general import UUIDMixin
-from app.models.Factions import Faction
 
 
 class LocationType(enum.Enum):

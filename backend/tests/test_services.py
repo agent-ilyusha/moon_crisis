@@ -1,20 +1,21 @@
-import pytest
 from uuid import uuid4
+
+import pytest
 from fastapi import HTTPException
+
+from app.models.rover import Rover
 from app.services.dispatch import (
     calculate_energy_spent,
+    calculate_rewards,
     calculate_travel_time_seconds,
+    calculate_wear_inflicted,
     find_route_distance_km,
     find_route_info,
-    calculate_wear_inflicted,
-    calculate_rewards,
-    schedule_rover_arrival
+    schedule_rover_arrival,
 )
-from app.models.Rover import Rover
 
 
 def test_calculate_energy_spent():
-    # base_cost = distance_km * 0.1; cargo_factor = 1 + cargo_mass / max_payload; hazard_factor = 1 + hazard_risk / 100
     assert calculate_energy_spent(10.0, 0.0, 500.0, 0.0) == pytest.approx(1.0)
     assert calculate_energy_spent(10.0, 500.0, 500.0, 0.0) == pytest.approx(2.0)
     assert calculate_energy_spent(10.0, 250.0, 500.0, 50.0) == pytest.approx(2.2)  # 1.0 * 1.5 * 1.5 = 2.25 -> 2.2
@@ -27,7 +28,6 @@ def test_calculate_travel_time_seconds():
 
 
 def test_calculate_wear_inflicted():
-    # Armor and cargo stress and hazards
     assert calculate_wear_inflicted(100.0, 0.0, 500.0, 0.0, 50) == 2  # (100 * 0.02 + 0) * 1 * 1 = 2
     assert calculate_wear_inflicted(10.0, 0.0, 500.0, 50.0, 50) == 10  # (10 * 0.02 + 50 * 0.2) * 1 * 1 = 10.2 -> 10
 
@@ -37,9 +37,8 @@ def test_calculate_rewards():
     assert credits == int(100 + 100 * 3.0 + 200 * 1.5)
     assert rep == pytest.approx(5.0 + 200 * 0.02 + 100 * 0.01)
 
-    # Тестируем влияние фракции станции на репутацию (совпадение фракций увеличивает Rep в 1.5 раза)
     id1 = uuid4()
-    credits2, rep2 = calculate_rewards(100.0, 200.0, id1, id1)
+    _, rep2 = calculate_rewards(100.0, 200.0, id1, id1)
     assert rep2 == pytest.approx((5.0 + 200 * 0.02 + 100 * 0.01) * 1.5)
 
 
@@ -68,7 +67,7 @@ def test_find_route_distance_same_location(db_session, seed_data):
 
 def test_find_route_distance_unreachable(db_session, seed_data):
     loc_a_id = seed_data["loc_a"].id
-    loc_c_id = seed_data["loc_c"].id  # Нет маршрута в Gamma Mine
+    loc_c_id = seed_data["loc_c"].id
 
     with pytest.raises(HTTPException) as exc:
         find_route_distance_km(db_session, loc_a_id, loc_c_id)

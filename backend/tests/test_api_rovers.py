@@ -1,7 +1,7 @@
-import pytest
 from uuid import uuid4
-from app.models.Rover import Rover
-from app.models.Station import Station
+
+from app.models.rover import Rover
+from app.models.station import Station
 
 
 def test_get_rovers(client, seed_data):
@@ -83,7 +83,7 @@ def test_charge_rover_success(client, db_session, seed_data):
 
 
 def test_charge_rover_already_full(client, seed_data):
-    rover = seed_data["rover"]  # Изначально 100%
+    rover = seed_data["rover"]
 
     response = client.post(f"/api/rovers/{rover.id}/charge")
     assert response.status_code == 400
@@ -102,7 +102,6 @@ def test_charge_rover_not_idle(client, db_session, seed_data):
 
 
 def test_buy_and_repair_rover(client, db_session, seed_data):
-    # Создадим станцию в сессии для теста
     station = Station(
         id=uuid4(),
         name="Test Station",
@@ -115,17 +114,14 @@ def test_buy_and_repair_rover(client, db_session, seed_data):
     db_session.add(station)
     db_session.commit()
 
-    # 1. Покупка ровера
     buy_response = client.post("/api/rovers/buy", json={"model": "Mule-Mk1"})
     assert buy_response.status_code == 200
     new_rover_data = buy_response.json()
     assert new_rover_data["model"] == "Mule-Mk1"
 
-    # Проверим, что списался баланс
     updated_station = db_session.query(Station).filter(Station.id == station.id).one()
     assert updated_station.balance == 2500  # 5000 - 2500
 
-    # 2. Имитируем износ и чиним ровер
     new_rover_id = new_rover_data["id"]
     db_rover = db_session.query(Rover).filter(Rover.id == new_rover_id).one()
     db_rover.wear = 30

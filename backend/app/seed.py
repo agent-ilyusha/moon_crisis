@@ -2,19 +2,25 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy.orm import Session
+
 from app.database import engine
-
+from app.models.factions import (
+    Faction,
+    Factions_relationship,
+    Station_faction_reputation,
+)
 from app.models.general import Base
-
-from app.models.Factions import Faction, Factions_relationship, Station_faction_reputation
-from app.models.Map import Map, LocationType
-from app.models.Route import RouteSegment
-from app.models.Rover import Rover
-from app.models.Station import Station
-from app.models.User import User
+from app.models.map import LocationType, Map
+from app.models.route import RouteSegment
+from app.models.rover import Rover
+from app.models.station import Station
+from app.models.user import User
 
 
 def seed_database():
+    """
+    Seed database.
+    """
     print("Таблицы, готовые к созданию:", Base.metadata.tables.keys())
     Base.metadata.create_all(bind=engine)
 
@@ -156,7 +162,7 @@ def seed_database():
                 username="commander_one",
                 hashed_password="some_secure_hashed_password_string",
                 role="commander",
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(),
             )
             db.add(test_user)
             db.flush()
@@ -174,7 +180,6 @@ def seed_database():
             db.add(home_station)
             db.flush()
 
-            # Начальная репутация с каждой фракцией (по 50 очков)
             for f in factions:
                 db.add(
                     Station_faction_reputation(
@@ -209,7 +214,7 @@ def seed_database():
     except Exception as e:
         db.rollback()
         print(f"Ошибка сидирования базы данных: {e}")
-        raise e
+        raise ValueError(e)
     finally:
         db.close()
 

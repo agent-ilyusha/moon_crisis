@@ -1,10 +1,10 @@
 from datetime import datetime
-from typing import List
-from sqlalchemy import String, DateTime
+
+from sqlalchemy import DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.general import UUIDMixin
-from app.models.Station import Station
+from app.models.station import Station
 
 
 class User(UUIDMixin):
@@ -18,7 +18,7 @@ class User(UUIDMixin):
     role: Mapped[str] = mapped_column(String(30), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
-    stations: Mapped[List[Station]] = relationship(back_populates='owner', cascade='all, delete-orphan')
+    stations: Mapped[list[Station]] = relationship(back_populates='owner', cascade='all, delete-orphan')
 
     def __str__(self):
         return f"Имя: {self.username}, роль: {self.role}, станции: {self.stations}"

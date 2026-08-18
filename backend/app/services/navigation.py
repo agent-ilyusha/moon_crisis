@@ -1,12 +1,28 @@
 import heapq
 from uuid import UUID
-from sqlalchemy.orm import Session
+
 from fastapi import HTTPException
-from app.models.Route import RouteSegment
-from app.models.Rover import Rover
+from sqlalchemy.orm import Session
+
+from app.models.route import RouteSegment
+from app.models.rover import Rover
 
 
 def calculate_server_route(db: Session, start_id: UUID, target_id: UUID):
+    """
+    Calculate server route.
+
+    Args:
+        db: Session database.
+        start_id: Start station.
+        target_id: End station.
+
+    Return:
+        Find route.
+
+    Raises:
+        HTTPException: If not path.
+    """
     routes = db.query(RouteSegment).all()
     graph = {}
 
@@ -35,6 +51,22 @@ def calculate_server_route(db: Session, start_id: UUID, target_id: UUID):
 
 
 def dispatch_rover_secure(db: Session, rover_id: UUID, target_location_id: UUID, cargo_weight: int):
+    """
+    Dispatch rover secure.
+
+    Args:
+        db: Session database.
+        rover_id: Id of rover.
+        target_location_id: Id of target location.
+        cargo_weight: Weight of cargo.
+
+    Return:
+        Dictionary of status.
+
+    Raises:
+        HTTPException:  If not rover or rover.status != "idle" or not rover.current_location_id
+        or cargo_weight > rover.max_payload or rover.now_battery_capacity < total_energy
+    """
     rover = db.query(Rover).filter(Rover.id == rover_id).with_for_update().first()
 
     if not rover:

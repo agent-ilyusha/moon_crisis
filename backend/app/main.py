@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import stations, rovers, maps, routes, factions
+from app.api import factions, maps, routes, rovers, stations
 from app.seed import seed_database
 
 
@@ -20,7 +20,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Разрешаем запросы с любых фронтенд-источников
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -29,7 +28,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Подключаем роутеры строго с префиксом /api
 app.include_router(stations.router, prefix="/api")
 app.include_router(rovers.router, prefix="/api")
 app.include_router(maps.router, prefix="/api")

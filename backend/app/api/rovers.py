@@ -1,12 +1,13 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import Annotated
 from uuid import UUID, uuid4
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_db
-from app.models.Rover import Rover
-from app.models.Station import Station
+from app.models.rover import Rover
+from app.models.station import Station
 from app.schemas import (
     RoverBuyRequest,
     RoverCatalogItem,
@@ -25,6 +26,7 @@ from app.services.dispatch import (
 )
 
 router = APIRouter(prefix="/rovers", tags=["Rovers"])
+Session = Annotated[Session, Depends(get_db)]
 
 ROVER_CATALOG: list[RoverCatalogItem] = [
     RoverCatalogItem(
@@ -89,16 +91,34 @@ class DispatchResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-@router.get("/catalog", response_model=List[RoverCatalogItem])
+@router.get("/catalog", response_model=list[RoverCatalogItem])
 def get_rover_catalog():
-    """Каталог доступных моделей роверов для покупки."""
+    """
+    Catalog of rover models available for purchase.
+
+    Args:
+
+    Return:
+        Catalog of rover.
+    """
     return ROVER_CATALOG
 
 
 @router.post("/buy", response_model=RoverResponse)
-def buy_rover(payload: RoverBuyRequest, db: Session = Depends(get_db)):
+def buy_rover(payload: RoverBuyRequest, db: Session):
     """
-    Покупка нового ровера за кредиты станции.
+    Purchasing a new rover using station credits.
+
+    Args:
+        payload: request to buy rover.
+        db: Session database.
+
+    Return:
+        New rover.
+
+    Raises:
+        HTTPException: If not catalog_item or not station or current_fleet_count >= station.fleet_capacity
+        or station.balance < catalog_item.price.
     """
     catalog_item = next((item for item in ROVER_CATALOG if item.model == payload.model), None)
     if not catalog_item:
@@ -137,7 +157,7 @@ def buy_rover(payload: RoverBuyRequest, db: Session = Depends(get_db)):
         battery_capacity=catalog_item.battery_capacity,
         base_drain_rate=catalog_item.base_drain_rate,
         armor=catalog_item.armor,
-        now_battery_capacity=catalog_item.battery_capacity if catalog_item.battery_capacity <= 100 else 100,
+        now_battery_capacity=min(catalog_item.battery_capacity, 100),
         position_x=0.0,
         position_y=0.0,
         status="idle",
@@ -153,10 +173,20 @@ def buy_rover(payload: RoverBuyRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/{rover_id}/repair", response_model=RoverRepairResponse)
-def repair_rover(rover_id: UUID, db: Session = Depends(get_db)):
+def repair_rover(rover_id: UUID, db: Session):
     """
-    Ремонт ровера за кредиты станции (устранение износа и повреждений).
-    Стоимость: 10 CR за 1% износа.
+    Repairing the rover using station credits.
+
+    Args:
+        rover_id: Id of rover.
+        db: Session database.
+
+    Return:
+        Response for repair.
+
+    Raises:
+        HTTPException: If not db_rover or db_rover.status == "en_route" or db_rover.wear <= 0 or db_rover.station_id
+        or not station or station and station.balance < cost_credits.
     """
     db_rover = db.query(Rover).filter(Rover.id == rover_id).first()
     if not db_rover:
@@ -200,13 +230,32 @@ def repair_rover(rover_id: UUID, db: Session = Depends(get_db)):
     )
 
 
-@router.get("/", response_model=List[RoverResponse])
-def get_rovers(db: Session = Depends(get_db)):
+@router.get("/", response_model=list[RoverResponse])
+def get_rovers(db: Session):
+    """
+    Get rover.
+
+    Args:
+        db: Session database.
+
+    Return:
+        All rover.
+    """
     return db.query(Rover).all()
 
 
 @router.post("/", response_model=RoverResponse)
-def create_rover(rover: RoverCreate, db: Session = Depends(get_db)):
+def create_rover(rover: RoverCreate, db: Session):
+    """
+    Create new rover.
+
+    Args:
+        rover: Data new rover.
+        db: Session database.
+
+    Return:
+        New rover.
+    """
     db_rover = Rover(**rover.model_dump())
     db.add(db_rover)
     db.commit()
@@ -218,8 +267,24 @@ def create_rover(rover: RoverCreate, db: Session = Depends(get_db)):
 def dispatch_rover(
     payload: RoverDispatch,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
+    db: Session,
 ):
+    """
+    Dispatch rover.
+
+    Args:
+        payload: Rover dispatch.
+        background_tasks: Background task.
+        db: Session database.
+
+    Return:
+        Dispatch response.
+
+    Raises:
+        HTTPException: If not db_rover or db_rover.status == "damaged" or db_rover.status != "idle"
+        or not db_rover.current_location_id or payload.cargo_mass > db_rover.max_payload
+        or db_rover.now_battery_capacity <= 0 or round(energy_spent) > db_rover.now_battery_capacity.
+    """
     db_rover = db.query(Rover).filter(Rover.id == payload.rover_id).first()
     if not db_rover:
         raise HTTPException(status_code=404, detail="Ровер не найден")
@@ -265,7 +330,7 @@ def dispatch_rover(
     )
     reward_credits, reward_rep = calculate_rewards(distance_km, payload.cargo_mass)
 
-    if int(round(energy_spent)) > db_rover.now_battery_capacity:
+    if round(energy_spent) > db_rover.now_battery_capacity:
         raise HTTPException(
             status_code=400,
             detail=(
@@ -275,7 +340,7 @@ def dispatch_rover(
         )
 
     db_rover.now_battery_capacity = max(
-        0, int(round(db_rover.now_battery_capacity - energy_spent))
+        0, round(db_rover.now_battery_capacity - energy_spent)
     )
     db_rover.status = "en_route"
     db_rover.current_location_id = payload.target_location_id
@@ -297,7 +362,7 @@ def dispatch_rover(
         status="success",
         energy_spent=energy_spent,
         travel_time_seconds=travel_time_seconds,
-        hazard_risk=int(round(avg_hazard_risk)),
+        hazard_risk=round(avg_hazard_risk),
         wear_inflicted=wear_inflicted,
         reward_credits=reward_credits,
         reward_rep=reward_rep,
@@ -306,7 +371,21 @@ def dispatch_rover(
 
 
 @router.patch("/{rover_id}", response_model=RoverResponse)
-def update_rover_status(rover_id: UUID, rover_update: RoverUpdate, db: Session = Depends(get_db)):
+def update_rover_status(rover_id: UUID, rover_update: RoverUpdate, db: Session):
+    """
+    Update rove status.
+
+    Args:
+        rover_id: UUID of rover.
+        rover_update: New data rover.
+        db: Session database.
+
+    Return:
+        Rover.
+
+    Raises:
+        HTTPException: If not db_rover.
+    """
     db_rover = db.query(Rover).filter(Rover.id == rover_id).first()
     if not db_rover:
         raise HTTPException(status_code=404, detail="Ровер не найден")
@@ -321,7 +400,20 @@ def update_rover_status(rover_id: UUID, rover_update: RoverUpdate, db: Session =
 
 
 @router.post("/{rover_id}/charge", response_model=RoverResponse)
-def charge_rover(rover_id: UUID, db: Session = Depends(get_db)):
+def charge_rover(rover_id: UUID, db: Session):
+    """
+    Charge rover.
+
+    Args:
+        rover_id: UUID of rover.
+        db: Session database.
+
+    Return:
+        Rover.
+
+    Raises:
+        HTTPException: If not db_rover or db_rover.status != "idle" or db_rover.now_battery_capacity >= 100.0.
+    """
     db_rover = db.query(Rover).filter(Rover.id == rover_id).first()
     if not db_rover:
         raise HTTPException(status_code=404, detail="Ровер не найден")

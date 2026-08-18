@@ -1,5 +1,7 @@
-from sqlalchemy import Column, Integer, Float, ForeignKey, String, UUID
-from sqlalchemy.orm import Mapped, validates, relationship
+from sqlalchemy import UUID, Column, Float, ForeignKey, Integer, String
+from sqlalchemy.orm import Mapped, relationship, validates
+
+from app.models import Station
 from app.models.general import UUIDMixin
 
 

@@ -1,7 +1,5 @@
 import uuid
 
-from app.models.Factions import Factions_relationship
-
 
 def test_get_factions(client, seed_data):
     response = client.get("/api/factions")

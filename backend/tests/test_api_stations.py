@@ -1,10 +1,9 @@
-import pytest
 from uuid import uuid4
-from app.models.Station import Station
+
+from app.models.station import Station
 
 
 def test_get_stations(client, db_session, seed_data):
-    # Создаем тестовую станцию
     station = Station(
         id=uuid4(),
         name="API Test Station",
@@ -45,7 +44,6 @@ def test_get_station_not_found(client):
 
 
 def test_get_station_stats(client, db_session, seed_data):
-    # Сначала удалим все станции, чтобы была предсказуемость (или просто возьмем первую)
     db_session.query(Station).delete()
     
     station = Station(

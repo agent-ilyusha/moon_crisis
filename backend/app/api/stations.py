@@ -1,28 +1,45 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from typing import List
+from typing import Annotated
 from uuid import UUID
 
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
 from app.api.dependencies import get_db
-from app.models.Factions import Faction, Station_faction_reputation
-from app.models.Rover import Rover
-from app.models.Station import Station
-from app.schemas import StationCreate, StationFactionRepInfo, StationResponse, StationStatsResponse
+from app.models.factions import Faction, Station_faction_reputation
+from app.models.rover import Rover
+from app.models.station import Station
+from app.schemas import (
+    StationCreate,
+    StationFactionRepInfo,
+    StationResponse,
+    StationStatsResponse,
+)
 
 router = APIRouter(prefix="/stations", tags=["Stations"])
+Session = Annotated[Session, Depends(get_db)]
 
 
-@router.get("/", response_model=List[StationResponse])
+@router.get("/", response_model=list[StationResponse])
 def get_stations(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     stations = db.query(Station).offset(skip).limit(limit).all()
     return stations
 
 
 @router.get("/stats", response_model=StationStatsResponse)
-def get_current_station_stats(db: Session = Depends(get_db)):
+def get_current_station_stats(db: Session):
     """
     Возвращает статус станции игрока: баланс (деньги), суммарную репутацию,
     репутацию с каждой фракцией и проверку условия проигрыша (репутация < 20 с любой фракцией).
+    Returns the status of the player's station.
+
+    Args:
+        db: Session database.
+
+    Return:
+        Balance, total reputation, reputation with each faction, and a check for the loss condition.
+
+    Raises:
+        HTTPException: If not station.
     """
     station = db.query(Station).first()
     if not station:
@@ -36,7 +53,7 @@ def get_current_station_stats(db: Session = Depends(get_db)):
     )
     rep_map = {r.faction_id: r.reputation for r in reputations}
 
-    faction_rep_infos: List[StationFactionRepInfo] = []
+    faction_rep_infos: list[StationFactionRepInfo] = []
     is_game_over = False
     game_over_reason = None
 
@@ -73,9 +90,18 @@ def get_current_station_stats(db: Session = Depends(get_db)):
 
 
 @router.post("/reset")
-def reset_game_state(db: Session = Depends(get_db)):
+def reset_game_state(db: Session):
     """
-    Сброс игрового прогресса (восстановление баланса, репутации и роверов).
+    Reset game progress.
+
+    Args:
+        db: Session database.
+
+    Return:
+        Status.
+
+    Raises:
+        HTTPException: If not station.
     """
     station = db.query(Station).first()
     if not station:
@@ -94,7 +120,7 @@ def reset_game_state(db: Session = Depends(get_db)):
 
     rovers = db.query(Rover).filter(Rover.station_id == station.id).all()
     for rov in rovers:
-        rov.now_battery_capacity = rov.battery_capacity if rov.battery_capacity <= 100 else 100
+        rov.now_battery_capacity = min(rov.battery_capacity, 100)
         rov.wear = 0
         rov.status = "idle"
         rov.current_location_id = station.location_id
@@ -104,7 +130,17 @@ def reset_game_state(db: Session = Depends(get_db)):
 
 
 @router.post("/", response_model=StationResponse, status_code=status.HTTP_201_CREATED)
-def create_station(station: StationCreate, db: Session = Depends(get_db)):
+def create_station(station: StationCreate, db: Session):
+    """
+    Create station.
+
+    Args:
+        station: Station data.
+        db: Session database.
+
+    Return:
+        Station.
+    """
     db_station = Station(**station.model_dump())
     db.add(db_station)
     db.commit()
@@ -113,7 +149,20 @@ def create_station(station: StationCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/{station_id}", response_model=StationResponse)
-def get_station(station_id: UUID, db: Session = Depends(get_db)):
+def get_station(station_id: UUID, db: Session):
+    """
+    Get station.
+
+    Args:
+        station_id: UUID of station.
+        db: Session database.
+
+    Return:
+        Station.
+
+    Raises:
+        HTTPException: If not station.
+    """
     station = db.query(Station).filter(Station.id == station_id).first()
     if not station:
         raise HTTPException(status_code=404, detail="Станция не найдена")

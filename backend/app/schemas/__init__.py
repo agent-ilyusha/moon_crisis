@@ -1,7 +1,7 @@
 from enum import Enum
-from pydantic import BaseModel, ConfigDict, Field
 from uuid import UUID
-from typing import Optional, List
+
+from pydantic import BaseModel, ConfigDict
 
 
 class RoverStatus(str, Enum):
@@ -57,8 +57,8 @@ class StationStatsResponse(BaseModel):
     fleet_capacity: int
     rovers_count: int
     is_game_over: bool
-    game_over_reason: Optional[str] = None
-    faction_reputations: List[StationFactionRepInfo] = []
+    game_over_reason: str | None = None
+    faction_reputations: list[StationFactionRepInfo] = []
 
 
 class StationBase(BaseModel):
@@ -69,14 +69,14 @@ class StationBase(BaseModel):
 
 
 class StationCreate(StationBase):
-    user_id: Optional[UUID] = None
+    user_id: UUID | None = None
     factions: UUID
 
 
 class StationResponse(StationBase):
     id: UUID
-    user_id: Optional[UUID] = None
-    location_id: Optional[UUID] = None
+    user_id: UUID | None = None
+    location_id: UUID | None = None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -92,7 +92,7 @@ class RoverBase(BaseModel):
     position_y: float
     status: str
     wear: int
-    station_id: Optional[UUID] = None
+    station_id: UUID | None = None
 
 
 class RoverCreate(RoverBase):
@@ -100,16 +100,16 @@ class RoverCreate(RoverBase):
 
 
 class RoverUpdate(BaseModel):
-    position_x: Optional[float] = None
-    position_y: Optional[float] = None
-    status: Optional[str] = None
-    now_battery_capacity: Optional[int] = None
-    wear: Optional[int] = None
+    position_x: float | None = None
+    position_y: float | None = None
+    status: str | None = None
+    now_battery_capacity: int | None = None
+    wear: int | None = None
 
 
 class RoverResponse(RoverBase):
     id: UUID
-    current_location_id: Optional[UUID] = None
+    current_location_id: UUID | None = None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -126,7 +126,7 @@ class RoverCatalogItem(BaseModel):
 
 class RoverBuyRequest(BaseModel):
     model: str
-    name: Optional[str] = None
+    name: str | None = None
 
 
 class RoverRepairResponse(BaseModel):
@@ -141,9 +141,9 @@ class MapNodeResponse(BaseModel):
     name: str
     coord_x: float
     coord_y: float
-    location_type: Optional[str] = None
-    controlling_faction_id: Optional[UUID] = None
-    faction_id: Optional[UUID] = None
+    location_type: str | None = None
+    controlling_faction_id: UUID | None = None
+    faction_id: UUID | None = None
     has_charging: bool = True
 
     model_config = ConfigDict(from_attributes=True)

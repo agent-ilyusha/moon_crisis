@@ -1,7 +1,7 @@
-from sqlalchemy import Column, Float, Integer, ForeignKey, String, UUID
+from sqlalchemy import UUID, Column, Float, ForeignKey, Integer
 from sqlalchemy.orm import Mapped
+
 from app.models.general import UUIDMixin
-from app.models.Map import Map
 
 
 class RouteSegment(UUIDMixin):

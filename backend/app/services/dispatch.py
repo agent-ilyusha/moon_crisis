@@ -6,15 +6,28 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import Session as SessionFactory
-from app.models.Factions import Faction, Factions_relationship, Station_faction_reputation
-from app.models.Map import Map
-from app.models.Route import RouteSegment
-from app.models.Rover import Rover
-from app.models.Station import Station
+from app.models.factions import (
+    Factions_relationship,
+    Station_faction_reputation,
+)
+from app.models.map import Map
+from app.models.route import RouteSegment
+from app.models.rover import Rover
+from app.models.station import Station
 
 
 def find_route_distance_km(db: Session, start_id: UUID, target_id: UUID) -> float:
-    """Совместимость со старым вызовом: возвращает только дистанцию."""
+    """
+    Compatibility with the old call.
+
+    Args:
+        db: Session database.
+        start_id: Start location.
+        target_id: End location.
+
+    Return:
+        Distance between start and end.
+    """
     distance, _, _ = find_route_info(db, start_id, target_id)
     return distance
 
@@ -23,14 +36,23 @@ def find_route_info(
     db: Session, start_id: UUID, target_id: UUID
 ) -> tuple[float, float, list[UUID]]:
     """
-    Находит кратчайший путь, суммарную дистанцию (км) и средний риск опасности зоны.
-    Возвращает (total_distance, avg_hazard_risk, path_of_node_ids)
+    Find route info.
+
+    Args:
+        db: Session database.
+        start_id: Start location.
+        target_id: End location.
+
+    Return:
+        Finds the shortest path, total distance (km), and average hazard risk of the zone.
+
+    Raises:
+        HTTPException: If not path.
     """
     if start_id == target_id:
         return 0.0, 0.0, [start_id]
 
     routes = db.query(RouteSegment).all()
-    # graph: start -> list of (to_node, distance_km, hazard_risk)
     graph: dict[UUID, list[tuple[UUID, float, int]]] = {}
     for route in routes:
         graph.setdefault(route.from_location_id, []).append(
@@ -40,7 +62,6 @@ def find_route_info(
             (route.from_location_id, route.distance_km, route.hazard_risk or 0)
         )
 
-    # queue of (distance, current_node, path, total_hazard, edge_count)
     queue: list[tuple[float, int, UUID, list[UUID], float, int]] = [
         (0.0, id(start_id), start_id, [start_id], 0.0, 0)
     ]
@@ -75,7 +96,14 @@ def find_route_info(
 
 def calculate_travel_time_seconds(distance_km: float, hazard_risk: float = 0.0) -> int:
     """
-    Опасные зоны (hazard_risk) замедляют движение ровера.
+    Calculate travel time seconds.
+
+    Args:
+        distance_km: All distance.
+        hazard_risk: Risk for rover.
+
+    Return:
+        Time for travel.
     """
     hazard_slowdown = 1.0 + (hazard_risk / 50.0)
     return max(5, round(distance_km * 1.5 * hazard_slowdown))
@@ -88,7 +116,16 @@ def calculate_energy_spent(
     hazard_risk: float = 0.0,
 ) -> float:
     """
-    Расход энергии увеличивается от массы груза и опасности рельефа зоны.
+    Calculate energy spent.
+
+    Args:
+        distance_km: All distance.
+        cargo_mass: Mass of cargo.
+        max_payload: Max payload rover.
+        hazard_risk: Risk for rover.
+
+    Return:
+        Energy spent.
     """
     CONSUMPTION_PER_KM = 0.1
     base_cost = distance_km * CONSUMPTION_PER_KM
@@ -106,8 +143,17 @@ def calculate_wear_inflicted(
     armor: int = 50,
 ) -> int:
     """
-    Опасность зоны и вес груза изнашивают узлы ровера (повреждение / износ).
-    Броня (armor) смягчает износ.
+    Calculate wear inflicted.
+
+    Args:
+        distance_km: All distance.
+        cargo_mass: Mass of cargo.
+        max_payload: Max payload rover.
+        hazard_risk: Risk for rover.
+        armor: Armor rover.
+
+    Return:
+        Inflicted.
     """
     armor_factor = 50.0 / max(10, armor)
     cargo_stress = 1.0 + (cargo_mass / max_payload if max_payload > 0 else 0)
@@ -115,11 +161,23 @@ def calculate_wear_inflicted(
     return max(1, min(100, round(wear)))
 
 
-def calculate_rewards(distance_km: float, cargo_mass: float, station_faction_id: UUID | None = None, target_faction_id: UUID | None = None) -> tuple[int, float]:
+def calculate_rewards(
+    distance_km: float,
+    cargo_mass: float,
+    station_faction_id: UUID | None = None,
+    target_faction_id: UUID | None = None
+) -> tuple[int, float]:
     """
-    Награда за доставку: кредиты (деньги) и очки репутации.
-    Если станция принадлежит к той же фракции, что и цель доставки, то репутационный бонус увеличивается в 1.5 раза.
-    Если фракции разные, то репутационный бонус увеличивается лишь базово (1.0).
+    Calculate rewards.
+
+    Args:
+        distance_km: All distance.
+        cargo_mass: Mass of cargo.
+        station_faction_id: First station id.
+        target_faction_id: Second station id.
+
+    Return:
+        Rewards.
     """
     earned_credits = int(100 + distance_km * 3.0 + cargo_mass * 1.5)
     
@@ -139,6 +197,20 @@ def schedule_rover_arrival(
     target_location_id: UUID | None = None,
     distance_km: float = 0.0,
 ) -> None:
+    """
+    Schedule rover arrival.
+
+    Args:
+        rover_id: Id of rover.
+        cargo_mass: Mass of cargo.
+        travel_time_seconds: Travel time.
+        wear_inflicted: Wear inflicted.
+        target_location_id: Target location.
+        distance_km: Distance.
+
+    Return:
+        None.
+    """
     time.sleep(travel_time_seconds)
 
     db = SessionFactory()
@@ -147,7 +219,6 @@ def schedule_rover_arrival(
         if not rover:
             return
 
-        # Наносим износ от маршрута
         rover.wear = min(100, rover.wear + wear_inflicted)
         if rover.wear >= 100:
             rover.status = "damaged"
@@ -157,14 +228,12 @@ def schedule_rover_arrival(
         if target_location_id:
             rover.current_location_id = target_location_id
 
-        # Пополняем баланс станции игрока
         station = None
         if rover.station_id:
             station = db.query(Station).filter(Station.id == rover.station_id).first()
         if not station:
             station = db.query(Station).first()
 
-        # Обновляем репутацию с фракцией назначения
         target_node = (
             db.query(Map).filter(Map.id == rover.current_location_id).first()
             if rover.current_location_id
@@ -177,7 +246,6 @@ def schedule_rover_arrival(
             else None
         )
 
-        # Награда в деньгах и репутации с учетом домашней фракции станции и целевой фракции
         station_faction_id = station.faction_id if station else None
         earned_credits, earned_rep = calculate_rewards(distance_km, cargo_mass, station_faction_id, dest_faction_id)
 
@@ -185,7 +253,6 @@ def schedule_rover_arrival(
             station.balance += earned_credits
 
         if station and dest_faction_id:
-            # Начисляем репутацию с целевой фракцией
             stat_rep = (
                 db.query(Station_faction_reputation)
                 .filter(
@@ -202,9 +269,8 @@ def schedule_rover_arrival(
                 )
                 db.add(stat_rep)
 
-            stat_rep.reputation = min(100, stat_rep.reputation + int(round(earned_rep)))
+            stat_rep.reputation = min(100, stat_rep.reputation + round(earned_rep))
 
-            # Влияние соперничества фракций: у конкурирующих фракций репутация немного снижается
             relationships = (
                 db.query(Factions_relationship)
                 .filter(
@@ -229,10 +295,8 @@ def schedule_rover_arrival(
                     .first()
                 )
                 if rival_rep:
-                    # Если impact отрицательный, репутация с соперником снижается
                     rival_rep.reputation = max(0, rival_rep.reputation + int(round(rel.reputation_impact)))
 
-            # Пересчитываем суммарную репутацию станции
             all_reps = (
                 db.query(Station_faction_reputation)
                 .filter(Station_faction_reputation.station_id == station.id)

@@ -1,5 +1,6 @@
 import uuid
-from sqlalchemy import UUID, event, inspect, TypeDecorator, CHAR
+
+from sqlalchemy import CHAR, UUID, TypeDecorator, event, inspect
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
